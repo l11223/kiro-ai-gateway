@@ -1,0 +1,6 @@
+services:
+  kiro-ai-gateway:
+    build:
+      dockerfile: docker/Dockerfile.backend
+      args:
+        FRONTEND_IMAGE: kiro-ai-gateway:latest

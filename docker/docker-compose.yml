@@ -1,0 +1,17 @@
+services:
+  kiro-ai-gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: kiro-ai-gateway
+    container_name: kiro-ai-gateway
+    network_mode: host  # Use host networking for direct localhost:8045 access
+    # ports:  # Not needed in host network mode
+    #   - "8045:8045"
+    volumes:
+      - ~/.kiro-ai-gateway:/root/.kiro-ai-gateway
+    environment:
+      - RUST_LOG=info
+      - KIRO_API_KEY=test  # [IMPORTANT] Set your secure API key; if unset, check logs for the random key
+      - KIRO_BIND_LOCAL_ONLY=true  # Bind to 127.0.0.1 only
+    restart: unless-stopped
