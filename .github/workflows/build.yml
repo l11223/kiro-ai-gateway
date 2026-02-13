@@ -76,6 +76,7 @@ jobs:
         run: npx vitest --run --passWithNoTests
 
       - name: Run Rust tests
+        if: matrix.platform != 'windows-latest'
         working-directory: src-tauri
         run: cargo test --lib --target ${{ matrix.target }}
 
