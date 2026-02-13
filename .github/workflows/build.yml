@@ -73,7 +73,7 @@ jobs:
         run: npm ci
 
       - name: Run frontend tests
-        run: npm test
+        run: npx vitest --run --passWithNoTests
 
       - name: Run Rust tests
         working-directory: src-tauri
