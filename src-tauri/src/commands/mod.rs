@@ -8,6 +8,7 @@
 // - proxy_pool: Proxy pool account bindings
 // - autostart: System auto-launch management
 
+pub mod account;
 pub mod autostart;
 pub mod cloudflared;
 pub mod proxy;

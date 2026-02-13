@@ -2245,6 +2245,7 @@ dependencies = [
  "hyper-util",
  "libc",
  "once_cell",
+ "open",
  "parking_lot",
  "pin-project",
  "proptest",

@@ -1,7 +1,10 @@
 import {
     Download,
+    Globe,
+    KeyRound,
     LayoutGrid,
     List,
+    Loader2,
     RefreshCw,
     Search,
     Sparkles,
@@ -9,6 +12,7 @@ import {
     ToggleRight,
     Trash2,
     Upload,
+    UserPlus,
     Tag,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -41,6 +45,7 @@ function Accounts() {
         warmUpAccounts,
         warmUpAccount,
         updateAccountLabel,
+        startOAuthLogin,
     } = useAccountStore();
     const { showAllQuotas, toggleShowAllQuotas } = useConfigStore();
 
@@ -60,6 +65,12 @@ function Accounts() {
     const [currentPage, setCurrentPage] = useState(1);
     const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
     const [editingLabelValue, setEditingLabelValue] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [addMode, setAddMode] = useState<'oauth' | 'token'>('oauth');
+    const [manualEmail, setManualEmail] = useState('');
+    const [manualToken, setManualToken] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
+    const [addError, setAddError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 12 : 15;
@@ -233,6 +244,36 @@ function Accounts() {
         finally { setEditingLabelId(null); }
     };
 
+    const handleOAuthLogin = async () => {
+        setIsAdding(true);
+        setAddError('');
+        try {
+            await startOAuthLogin();
+            setShowAddModal(false);
+            await fetchAccounts();
+        } catch (e) {
+            setAddError(String(e));
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
+    const handleManualAdd = async () => {
+        if (!manualToken.trim()) return;
+        setIsAdding(true);
+        setAddError('');
+        try {
+            await addAccount(manualEmail.trim(), manualToken.trim());
+            setShowAddModal(false);
+            setManualEmail('');
+            setManualToken('');
+        } catch (e) {
+            setAddError(String(e));
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
     const getSubscriptionBadge = (tier?: string) => {
         if (!tier) return null;
         const t = tier.toLowerCase();
@@ -309,6 +350,9 @@ function Accounts() {
                         <input type="checkbox" className="toggle toggle-xs toggle-primary" checked={showAllQuotas} onChange={toggleShowAllQuotas} />
                     </label>
                     <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+                    <button className="px-2.5 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs rounded-lg hover:from-indigo-600 hover:to-purple-600 flex items-center gap-1.5 shadow-sm" onClick={() => { setShowAddModal(true); setAddError(''); setAddMode('oauth'); }}>
+                        <UserPlus className="w-3.5 h-3.5" /><span className="hidden lg:inline">{t('accounts.add_account')}</span>
+                    </button>
                     <button className="px-2.5 py-2 border border-gray-200 dark:border-base-300 text-gray-700 dark:text-gray-300 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-base-200 flex items-center gap-1.5" onClick={handleImportJson}>
                         <Upload className="w-3.5 h-3.5" /><span className="hidden lg:inline">{t('common.import')}</span>
                     </button>
@@ -461,6 +505,103 @@ function Accounts() {
                             <button className="btn btn-error" onClick={handleDelete}>{t('common.delete')}</button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Add Account modal */}
+            {showAddModal && (
+                <div className="modal modal-open">
+                    <div className="modal-box max-w-md">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            <UserPlus className="w-5 h-5 text-indigo-500" />
+                            {t('accounts.add_account')}
+                        </h3>
+
+                        {/* Mode tabs */}
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                className={cn('flex-1 py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all border-2',
+                                    addMode === 'oauth' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600' : 'border-gray-200 dark:border-base-300 text-gray-500 hover:border-gray-300')}
+                                onClick={() => { setAddMode('oauth'); setAddError(''); }}
+                            >
+                                <Globe className="w-4 h-4" />
+                                Google OAuth
+                            </button>
+                            <button
+                                className={cn('flex-1 py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all border-2',
+                                    addMode === 'token' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600' : 'border-gray-200 dark:border-base-300 text-gray-500 hover:border-gray-300')}
+                                onClick={() => { setAddMode('token'); setAddError(''); }}
+                            >
+                                <KeyRound className="w-4 h-4" />
+                                Refresh Token
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="mt-4">
+                            {addMode === 'oauth' ? (
+                                <div className="text-center py-4">
+                                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
+                                        <Globe className="w-8 h-8 text-white" />
+                                    </div>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                        点击下方按钮将打开浏览器进行 Google 授权登录，完成后账号将自动添加。
+                                    </p>
+                                    <button
+                                        className={cn('btn btn-primary btn-wide gap-2', isAdding && 'loading')}
+                                        onClick={handleOAuthLogin}
+                                        disabled={isAdding}
+                                    >
+                                        {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                                        {isAdding ? '等待授权中...' : '开始 OAuth 登录'}
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="label"><span className="label-text text-xs">Email (可选，留空自动获取)</span></label>
+                                        <input
+                                            type="email"
+                                            className="input input-bordered input-sm w-full"
+                                            placeholder="user@example.com"
+                                            value={manualEmail}
+                                            onChange={e => setManualEmail(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="label"><span className="label-text text-xs">Refresh Token</span></label>
+                                        <textarea
+                                            className="textarea textarea-bordered w-full text-xs font-mono"
+                                            rows={3}
+                                            placeholder="1//0..."
+                                            value={manualToken}
+                                            onChange={e => setManualToken(e.target.value)}
+                                        />
+                                    </div>
+                                    <button
+                                        className={cn('btn btn-primary btn-sm w-full gap-2', isAdding && 'loading')}
+                                        onClick={handleManualAdd}
+                                        disabled={isAdding || !manualToken.trim()}
+                                    >
+                                        {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                                        {isAdding ? '添加中...' : '添加账号'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Error */}
+                        {addError && (
+                            <div className="mt-3 p-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg">
+                                <p className="text-xs text-red-600 dark:text-red-400 break-all">{addError}</p>
+                            </div>
+                        )}
+
+                        <div className="modal-action">
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddModal(false); setAddError(''); setManualEmail(''); setManualToken(''); }}>{t('common.cancel')}</button>
+                        </div>
+                    </div>
+                    <div className="modal-backdrop" onClick={() => !isAdding && setShowAddModal(false)} />
                 </div>
             )}
         </div>
